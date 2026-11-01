@@ -1,0 +1,10 @@
+# Desktop UI (Qt) incl. the embedded SoundCloud player (Qt WebEngine)
+PySide6>=6.7
+# SoundCloud player window (Microsoft Edge WebView2; plays AAC streams Qt WebEngine cannot)
+pywebview>=5
+# Detect what plays in the SoundCloud app / browser (Windows media controls)
+winrt-runtime
+winrt-Windows.Media.Control
+winrt-Windows.Foundation
+# tests
+pytest>=8
