@@ -2,13 +2,13 @@
   <h1>Cuelog</h1>
   <p>A Windows desktop app that turns the SoundCloud DJ sets you listen to into individual Last.fm scrobbles,<br> plus a full Last.fm stats dashboard for music enthusiasts.</p>
 
-[![Status: WIP](https://img.shields.io/badge/Status-Work_in_progress-orange?style=flat-square)](#status) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/) [![Qt](https://img.shields.io/badge/PySide6-Qt_6-41CD52?style=flat-square&logo=qt&logoColor=white)](https://doc.qt.io/qtforpython-6/) [![Platform](https://img.shields.io/badge/Platform-Windows_10%2F11-0078D6?style=flat-square&logo=windows&logoColor=white)](#getting-started) [![Local first](https://img.shields.io/badge/100%25-Local-blue?style=flat-square)](#privacy)
+[![Status: WIP](https://img.shields.io/badge/Status-Work_in_progress-orange?style=flat-square)](#status) [![Download](https://img.shields.io/github/v/release/flodlol/Cuelog?include_prereleases&label=Download&style=flat-square&color=ff5a1f)](https://github.com/flodlol/Cuelog/releases/latest) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/) [![Qt](https://img.shields.io/badge/PySide6-Qt_6-41CD52?style=flat-square&logo=qt&logoColor=white)](https://doc.qt.io/qtforpython-6/) [![Platform](https://img.shields.io/badge/Platform-Windows_10%2F11-0078D6?style=flat-square&logo=windows&logoColor=white)](#getting-started) [![Local first](https://img.shields.io/badge/100%25-Local-blue?style=flat-square)](#privacy)
 
 </div>
 
 > [!WARNING]
-> **Work in progress.** Cuelog works and I use it every day, but it's still changing a lot. Expect rough edges,
-> breaking changes to the database between versions, and no installer yet (you run it from source).
+> **Work in progress.** Cuelog works and I use it every day, but it's still changing a lot. Expect rough edges
+> and changes between versions.
 
 ---
 
@@ -64,13 +64,26 @@ So I built a desktop app that does it properly and stays on my PC.
 
 ## Getting Started
 
-### Requirements
+### Install
 
-- Windows 10 or 11
-- Python 3.10+ from [python.org](https://www.python.org/downloads/)
+1. Download **`Cuelog-Setup-x.y.z.exe`** from the [latest release](https://github.com/flodlol/Cuelog/releases/latest)
+2. Run it. It installs for your Windows account only (no admin needed) and adds Cuelog to the Start menu
+3. Open Cuelog and follow the setup check
+
+> [!NOTE]
+> The installer isn't code-signed yet, so Windows SmartScreen may warn about an unknown publisher.
+> Click **More info → Run anyway**.
+
+Prefer no installer? Download **`Cuelog-x.y.z-portable.zip`**, unzip it anywhere and run `Cuelog.exe`.
+
+You need:
+
+- Windows 10 or 11 (64-bit)
 - A Last.fm account and a (free) [Last.fm API account](https://www.last.fm/api/account/create)
 
-### Run it locally
+### Run from source
+
+Requires Python 3.10+ from [python.org](https://www.python.org/downloads/).
 
 ```bash
 # Clone the repo
@@ -100,7 +113,7 @@ Add `--setup` to show the setup check again.
 | Spotify app | Optional | Better matching, official metadata, artwork and artist photos (client credentials, no Spotify login) | https://developer.spotify.com/dashboard |
 | SoundCloud app | Optional | Richer metadata, your playlists and likes | https://soundcloud.com/you/apps (reviewed by SoundCloud) |
 
-Credentials go in **Settings** and are saved to `settings.env` (see `.env.example`). That file is git-ignored.
+Credentials go in **Settings** and are saved to `%LOCALAPPDATA%\Cuelog\settings.env` (see `.env.example`).
 Session tokens are stored in the local database, encrypted with your Windows account (DPAPI).
 
 ---
@@ -125,6 +138,7 @@ cuelog/
 ├── lastfm.py, spotify.py, soundcloud.py, musicbrainz.py  --> API clients
 ├── player_proc.py        --> Player window (WebView2 + SoundCloud widget)
 └── ui/                   --> Qt interface (pages, dialogs, charts, theme)
+packaging/                --> Cuelog.exe (PyInstaller) and the installer (Inno Setup)
 tests/                    --> pytest suite
 docs/DATA_SCHEMA.md       --> Legacy CSV formats
 ```
@@ -160,6 +174,7 @@ your saved sets. If one matches, it follows along and scrobbles the songs as the
 | Player | pywebview + Microsoft Edge WebView2 |
 | Media detection | WinRT `Windows.Media.Control` |
 | APIs | Last.fm, Spotify, SoundCloud, MusicBrainz, Cover Art Archive, Deezer (images) |
+| Packaging | PyInstaller, Inno Setup |
 | Tests | pytest |
 | Language | Python 3.10+ |
 
@@ -170,8 +185,9 @@ your saved sets. If one matches, it follows along and scrobbles the songs as the
 **Everything stays on your PC.**
 
 - No Cuelog server, no accounts, no analytics
-- Your listening data lives in a local SQLite database (`data/`)
-- API credentials stay in `settings.env`; tokens are encrypted with Windows DPAPI
+- Your listening data lives in a local SQLite database in `%LOCALAPPDATA%\Cuelog` (Settings → About → Open folder)
+- API credentials stay in `settings.env` in that same folder; tokens are encrypted with Windows DPAPI
+- Uninstalling Cuelog keeps your data; delete that folder to remove it too
 - Cuelog only talks to the music APIs listed above
 
 ---
@@ -180,7 +196,8 @@ your saved sets. If one matches, it follows along and scrobbles the songs as the
 
 Cuelog is a **work in progress**. Things on the list:
 
-- [ ] Packaged `Cuelog.exe` with Start menu shortcut and its own data folder
+- [x] Packaged `Cuelog.exe` with an installer, Start menu shortcut and its own data folder
+- [ ] Code signing and automatic updates
 - [ ] Better tracklist extraction for sets without a description
 - [ ] More reports (artist and tag deep dives)
 - [ ] Polishing, polishing, polishing
@@ -202,6 +219,15 @@ Known limitations:
 The tests cover tracklist and URL parsing, matching, timing, repeat listens and backfill, the import engine
 against a simulated Last.fm (partial acceptance, limits, timeouts, crash recovery, duplicates), live scrobbling,
 legacy migration, and a UI smoke test.
+
+### Building the app
+
+```bash
+powershell -ExecutionPolicy Bypass -File packaging\build.ps1
+```
+
+This builds `dist\Cuelog\Cuelog.exe`, a portable zip and `Cuelog-Setup-<version>.exe`. It needs
+[Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`).
 
 ---
 

@@ -92,7 +92,7 @@ def main(argv: list[str]) -> int:
     try:
         import webview
     except ImportError:
-        emit({"type": "error", "message": "pywebview is not installed; run start.bat again to install it."})
+        emit({"type": "error", "message": "pywebview is not installed; reinstall Cuelog (or run start.bat again from source)."})
         return 3
     window = webview.create_window(f"{title} · Cuelog", html=player_html(url, seek), js_api=Api(), width=720, height=420,
                                    min_size=(420, 300), background_color="#0b0b0c")

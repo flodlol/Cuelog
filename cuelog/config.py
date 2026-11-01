@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = Path(os.environ.get("CUELOG_DATA_DIR", ROOT / "data"))
-ENV_FILE = Path(os.environ.get("CUELOG_ENV_FILE", ROOT / "settings.env"))
+FROZEN = bool(getattr(sys, "frozen", False))      # running as the packaged Cuelog.exe
+# Everything personal lives in %LOCALAPPDATA%\Cuelog, so the installed app and a source checkout share it.
+APP_HOME = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Cuelog"
+DATA_DIR = Path(os.environ.get("CUELOG_DATA_DIR", APP_HOME / "data"))
+ENV_FILE = Path(os.environ.get("CUELOG_ENV_FILE", APP_HOME / "settings.env"))
 
 CREDENTIAL_KEYS = (
     "LASTFM_API_KEY", "LASTFM_API_SECRET",
@@ -22,6 +27,33 @@ CREDENTIAL_KEYS = (
 )
 DEFAULT_SOUNDCLOUD_REDIRECT = "http://127.0.0.1:8765/soundcloud/callback"
 _KEY_RE = re.compile(r"^[A-Z0-9_]+$")
+
+
+def migrate_old_location() -> bool:
+    """Copy data/ and settings.env from a source checkout (where they used to live) on first start.
+
+    Copies, never moves: the old files stay where they are as a backup."""
+    old_data, old_env = ROOT / "data", ROOT / "settings.env"
+    moved = False
+    if "CUELOG_DATA_DIR" not in os.environ and not (DATA_DIR / "cuelog.db").exists() and (old_data / "cuelog.db").exists():
+        try:
+            shutil.copytree(old_data, DATA_DIR, dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns("*.lock", "*.lock.*", "cuelog.db", "cuelog.db-*"))
+        except shutil.Error:
+            pass          # a few browser-cache files in use; the rest is copied and the caches refill themselves
+        import sqlite3
+        src, dst = sqlite3.connect(old_data / "cuelog.db"), sqlite3.connect(DATA_DIR / "cuelog.db")
+        try:
+            src.backup(dst)       # consistent copy, WAL included, even while the old copy is open
+        finally:
+            dst.close()
+            src.close()
+        moved = True
+    if "CUELOG_ENV_FILE" not in os.environ and not ENV_FILE.exists() and old_env.exists():
+        ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(old_env, ENV_FILE)
+        moved = True
+    return moved
 
 
 def data_dir() -> Path:

@@ -101,7 +101,7 @@ class SetupWizard(Dialog):
             import webview  # noqa: F401
             self.c_deps.set("ok", f"Python {sys.version.split()[0]} · Qt {PySide6.__version__} · player window (Edge WebView2)")
         except ImportError as err:
-            self.c_deps.set("warn", f"Player window unavailable ({err}); run start.bat again. Everything else works.")
+            self.c_deps.set("warn", f"Player window unavailable ({err}); reinstall Cuelog (or run start.bat again from source). Everything else works.")
         self.c_net.set("wait", "Contacting SoundCloud…")
         run(lambda: http.request("GET", "https://w.soundcloud.com/player/api.js", timeout=10),
             lambda _: self.c_net.set("ok", "SoundCloud reachable"),

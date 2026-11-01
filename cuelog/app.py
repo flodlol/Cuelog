@@ -6,8 +6,33 @@ import sys
 import traceback
 
 
+def _attach_pipes() -> None:
+    """A windowed exe may start without sys.stdin/stdout even when the app hands it pipes: reattach them."""
+    if sys.platform != "win32" or (sys.stdin is not None and sys.stdout is not None):
+        return
+    import ctypes
+    import msvcrt
+    kernel32 = ctypes.windll.kernel32
+    kernel32.GetStdHandle.restype = ctypes.c_void_p
+    for name, std, flags, mode in (("stdin", -10, os.O_RDONLY, "r"), ("stdout", -11, os.O_WRONLY, "w")):
+        if getattr(sys, name) is not None:
+            continue
+        handle = kernel32.GetStdHandle(std)
+        if handle and handle != ctypes.c_void_p(-1).value:
+            try:
+                fd = msvcrt.open_osfhandle(handle, flags)
+                setattr(sys, name, open(fd, mode, encoding="utf-8", buffering=1))
+            except OSError:
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv
+    if len(argv) > 1 and argv[1] == "--player":
+        # Cuelog.exe --player <url> …: the packaged app runs its own player window
+        from . import player_proc
+        _attach_pipes()
+        return player_proc.main(argv[1:])
     if sys.platform == "win32":
         try:
             import ctypes
@@ -43,10 +68,17 @@ def main(argv: list[str] | None = None) -> int:
     from .ui.winchrome import DarkChrome
     chrome = DarkChrome()
     app.installEventFilter(chrome)
-    icon = QIcon()
-    for size in (16, 24, 32, 48, 64, 128, 256):
-        icon.addPixmap(T.icon_pixmap("wave", T.ACCENT, size, dpr=1.0))
+    from pathlib import Path
+    icon = QIcon(str(Path(__file__).resolve().parent / "assets" / "cuelog.ico"))
+    if icon.isNull():
+        for size in (16, 24, 32, 48, 64, 128, 256):
+            icon.addPixmap(T.icon_pixmap("wave", T.ACCENT, size, dpr=1.0))
     app.setWindowIcon(icon)
+
+    try:
+        config.migrate_old_location()
+    except OSError as err:
+        QMessageBox.warning(None, APP_NAME, f"Your data could not be copied to {config.APP_HOME}:\n{err}")
 
     lock = QLockFile(str(config.data_dir() / "cuelog.lock"))
     lock.setStaleLockTime(0)
@@ -83,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     def excepthook(t, v, tb):
         text = "".join(traceback.format_exception(t, v, tb))
         (config.data_dir() / "error.log").open("a", encoding="utf-8").write(text + "\n")
-        QMessageBox.warning(win, APP_NAME, f"Something went wrong: {v}\n\nDetails were written to data/error.log.")
+        QMessageBox.warning(win, APP_NAME, f"Something went wrong: {v}\n\nDetails were written to {config.data_dir() / 'error.log'}.")
     sys.excepthook = excepthook
     code = app.exec()
     lock.unlock()

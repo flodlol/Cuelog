@@ -34,6 +34,8 @@ htmlcov/
 build/
 dist/
 *.spec
+!packaging/cuelog.spec
+packaging/version_info.txt
 
 # editors / OS
 .vscode/

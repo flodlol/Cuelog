@@ -693,7 +693,11 @@ class PlayerPage(QWidget):
         self.proc.finished.connect(self._proc_finished)
         self.proc.errorOccurred.connect(lambda e: self._state(f"Couldn't open the player ({e.name})."))
         self.proc.setWorkingDirectory(str(config.ROOT))
-        self.proc.start(sys.executable, ["-m", "cuelog.player_proc", self.s["source_url"], str(int(seek)), self.s["title"][:80]])
+        args = [self.s["source_url"], str(int(seek)), self.s["title"][:80]]
+        if config.FROZEN:
+            self.proc.start(sys.executable, ["--player", *args])
+        else:
+            self.proc.start(sys.executable, ["-m", "cuelog.player_proc", *args])
         self.window_btn.setText("Show player")
 
     def stop_player(self):

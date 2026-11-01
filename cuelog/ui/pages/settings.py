@@ -525,8 +525,11 @@ class AboutPanel(Panel):
         add_row(rows, "Where the data comes from", "Songs from Spotify and MusicBrainz, artwork from Spotify and the Cover "
                                                    "Art Archive, previews from Deezer, stats from Last.fm, icons from Lucide.",
                 None)
-        add_row(rows, "Keys and logins", f"API keys are stored in {config.ENV_FILE.name} next to the app. Logins are "
+        add_row(rows, "Keys and logins", f"API keys are stored in {config.ENV_FILE.name}. Logins are "
                                          "encrypted with your Windows account.", None)
+        folder = button("Open folder")
+        folder.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.APP_HOME))))
+        add_row(rows, "Your data", f"Database, settings and caches live in {config.APP_HOME}.", folder)
         self.lay.addWidget(g)
         self.lay.addStretch(1)
 

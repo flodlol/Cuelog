@@ -10,7 +10,7 @@ from .. import APP_NAME
 from . import theme as T
 from .state import app_state
 from .components import ElidedLabel
-from .widgets import Artwork, Toast, icon_label, label, open_url
+from .widgets import Artwork, Banner, Toast, icon_label, label, open_url
 from .workers import ImportRunner
 
 NAV = [
@@ -294,6 +294,13 @@ class MainWindow(QMainWindow):
         self.watcher = SoundCloudWatcher(self)
         self.watcher.status.connect(lambda t: self.sidebar.set_live(t))
         self._dirty: set[str] = set()
+        try:
+            from .. import db
+            paused = db.get().execute("SELECT message FROM jobs WHERE status = 'rate_limited' ORDER BY id DESC LIMIT 1").fetchone()
+            if paused:
+                self._show_limit(paused[0] or "Waiting for Last.fm.")
+        except Exception:
+            pass
         self._update_badges()
         self.navigate("dashboard")
 
@@ -322,8 +329,25 @@ class MainWindow(QMainWindow):
         h.setSpacing(0)
         self.sidebar = Sidebar(self.navigate)
         h.addWidget(self.sidebar)
+        content = QWidget()
+        cv = QVBoxLayout(content)
+        cv.setContentsMargins(0, 0, 0, 0)
+        cv.setSpacing(0)
+        # One standing notice while imports are paused (daily limit, Last.fm down) instead of a toast per retry
+        view = QPushButton("View queue")
+        view.setCursor(Qt.PointingHandCursor)
+        view.clicked.connect(lambda: self.navigate("queue"))
+        self.limit_banner = Banner("", action=view)
+        wrap = QWidget()
+        wl = QVBoxLayout(wrap)
+        wl.setContentsMargins(T.S6, T.S4, T.S6, 0)
+        wl.addWidget(self.limit_banner)
+        self.limit_wrap = wrap
+        cv.addWidget(wrap)
         self.stack = QStackedWidget()
-        h.addWidget(self.stack, 1)
+        cv.addWidget(self.stack, 1)
+        h.addWidget(content, 1)
+        self._show_limit(getattr(self, "_limit_msg", ""))
         self.setCentralWidget(root)
         if old is not None:
             old.deleteLater()
@@ -421,10 +445,17 @@ class MainWindow(QMainWindow):
         c = progress.counts or {}
         if progress.status == "uploading":
             self.sidebar.set_job(f"Importing to Last.fm · {c.get('accepted', 0)} sent, {c.get('pending', 0)} left")
+            if progress.message.startswith("Sent"):      # scrobbles are going through again
+                self._show_limit("")
         elif progress.status in ("completed", "partial", "needs_review", "failed", "rate_limited", "cancelled"):
-            kind = {"completed": "success", "partial": "warn", "needs_review": "warn", "rate_limited": "warn"}.get(progress.status, "error")
-            if progress.status != "cancelled":
-                self.toast(f"Import {progress.status.replace('_', ' ')}: {progress.message}", kind)
+            if progress.status == "rate_limited":
+                # retried every so often (and on every live scrobble): keep it to one quiet banner
+                self._show_limit(progress.message)
+            else:
+                self._show_limit("")
+                kind = {"completed": "success", "partial": "warn", "needs_review": "warn"}.get(progress.status, "error")
+                if progress.status != "cancelled":
+                    self.toast(f"Import {progress.status.replace('_', ' ')}: {progress.message}", kind)
             from .. import insights
             insights.forget()
             self.state.lastfm_activity.emit()
@@ -433,6 +464,12 @@ class MainWindow(QMainWindow):
         cur = self.stack.currentWidget()
         if hasattr(cur, "on_job_progress"):
             cur.on_job_progress(progress)
+
+    def _show_limit(self, message: str):
+        self._limit_msg = message
+        if message:
+            self.limit_banner.text.setText(f"<b>Last.fm import paused.</b> {message} New listens are kept and sent later.")
+        self.limit_wrap.setVisible(bool(message))
 
     def _refresh_account(self):
         self.sidebar.set_account(self.state.lastfm_user())
